@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full bg-[#F5F5F7]">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Evaluasi Siswa - Robust Analytics</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            letter-spacing: -0.011em;
+        }
+    </style>
+</head>
+<body class="h-full text-slate-800 antialiased selection:bg-blue-500 selection:text-white">
+
+    <div class="max-w-7xl mx-auto px-6 py-10">
+        
+        <!-- Apple-style Navigation Header -->
+        <header class="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-semibold tracking-tight text-slate-900">Evaluasi Siswa</h1>
+                <p class="text-sm text-slate-500 mt-1">Platform Manajemen & Robust Analytics Akademik</p>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <!-- Action Button Impor JSON -->
+                <button onclick="toggleImportModal()" class="flex items-center gap-2 bg-white/80 hover:bg-white text-slate-700 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-black/[0.05] shadow-[0_2px_12px_rgba(0,0,0,0.03)] text-xs font-semibold transition">
+                    <svg class="w-4 h-4 text-[#0071E3]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                    Impor Data JSON
+                </button>
+
+                <!-- Rules Trigger -->
+                <div class="flex items-center gap-3 bg-white/80 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-black/[0.05] shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
+                    <div class="text-xs">
+                        <span class="text-slate-400 block font-medium">Syarat Lulus</span>
+                        <span class="text-slate-700 font-semibold" id="rulesSummary">Avg ≥ 75 | ≥ 3 Matpel ≥ 70</span>
+                    </div>
+                    <button onclick="toggleRulesModal()" class="ml-2 text-xs text-[#0071E3] hover:text-blue-700 font-medium transition">Ubah Rules</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- KPI Metrics Grid -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+            <div class="bg-white/70 backdrop-blur-xl p-6 rounded-2xl border border-black/[0.05] shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
+                <span class="text-xs font-medium text-slate-400 tracking-wide uppercase">Total Siswa</span>
+                <div id="kpiTotal" class="text-3xl font-semibold text-slate-900 mt-2">0</div>
+            </div>
+            <div class="bg-white/70 backdrop-blur-xl p-6 rounded-2xl border border-black/[0.05] shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
+                <span class="text-xs font-medium text-slate-400 tracking-wide uppercase">Tingkat Kelulusan</span>
+                <div id="kpiPassRate" class="text-3xl font-semibold text-emerald-600 mt-2">0%</div>
+            </div>
+            <div class="bg-white/70 backdrop-blur-xl p-6 rounded-2xl border border-black/[0.05] shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
+                <span class="text-xs font-medium text-slate-400 tracking-wide uppercase">Rata-rata Keseluruhan</span>
+                <div id="kpiAvgScore" class="text-3xl font-semibold text-[#0071E3] mt-2">0</div>
+            </div>
+            <div class="bg-white/70 backdrop-blur-xl p-6 rounded-2xl border border-black/[0.05] shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
+                <span class="text-xs font-medium text-slate-400 tracking-wide uppercase">Siswa Lulus / Gagal</span>
+                <div id="kpiPassFailRatio" class="text-3xl font-semibold text-slate-800 mt-2">0 / 0</div>
+            </div>
+        </section>
+
+        <!-- Analytics Section -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+            <div class="lg:col-span-2 bg-white/70 backdrop-blur-xl p-6 rounded-2xl border border-black/[0.05] shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-base font-semibold text-slate-800">Perbandingan Rata-Rata vs Median (Bebas Outlier)</h2>
+                    <div class="flex items-center gap-4 text-xs font-medium">
+                        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-[#0071E3]"></span> Mean</span>
+                        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-emerald-500"></span> Median</span>
+                    </div>
+                </div>
+                <div class="h-64">
+                    <canvas id="analyticsChart"></canvas>
+                </div>
+            </div>
+
+            <div class="bg-white/70 backdrop-blur-xl p-6 rounded-2xl border border-black/[0.05] shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center gap-2 mb-3">
+                        <div class="w-2.5 h-2.5 rounded-full bg-[#0071E3]"></div>
+                        <h2 class="text-base font-semibold text-slate-800">Robust Insight Engine</h2>
+                    </div>
+                    <p id="insightText" class="text-sm text-slate-600 leading-relaxed mt-2">
+                        Memuat kalkulasi analitik...
+                    </p>
+                </div>
+                <div class="pt-4 border-t border-slate-100 text-xs text-slate-400">
+                    Evaluasi otomatis menggunakan kombinasi Bobot Median & Pass Rate.
+                </div>
+            </div>
+        </section>
+
+        <!-- Form and Table Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div class="lg:col-span-4 bg-white/70 backdrop-blur-xl p-6 rounded-2xl border border-black/[0.05] shadow-[0_2px_12px_rgba(0,0,0,0.03)] h-fit">
+                <h2 id="formTitle" class="text-base font-semibold text-slate-900 mb-5">Input Data Siswa</h2>
+                
+                <form id="studentForm" onsubmit="handleFormSubmit(event)" class="space-y-4">
+                    <input type="hidden" id="studentId">
+
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1.5">Nama Lengkap</label>
+                        <input type="text" id="studentName" required placeholder="Contoh: John Doe" class="w-full px-3.5 py-2.5 text-sm bg-slate-50/50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 focus:border-[#0071E3] transition">
+                    </div>
+
+                    <div class="pt-2 border-t border-slate-100">
+                        <span class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Nilai Mata Pelajaran</span>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-600 mb-1">Matematika</label>
+                                <input type="number" id="scoreMtk" min="0" max="100" required class="w-full px-3 py-2 text-sm bg-slate-50/50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 focus:border-[#0071E3]">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-600 mb-1">IPA</label>
+                                <input type="number" id="scoreIpa" min="0" max="100" required class="w-full px-3 py-2 text-sm bg-slate-50/50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 focus:border-[#0071E3]">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-600 mb-1">Technology</label>
+                                <input type="number" id="scoreTech" min="0" max="100" required class="w-full px-3 py-2 text-sm bg-slate-50/50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 focus:border-[#0071E3]">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-600 mb-1">Engineering</label>
+                                <input type="number" id="scoreEng" min="0" max="100" required class="w-full px-3 py-2 text-sm bg-slate-50/50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 focus:border-[#0071E3]">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pt-4 flex gap-2">
+                        <button type="submit" id="btnSubmit" class="flex-1 bg-[#0071E3] hover:bg-blue-600 text-white font-medium py-2.5 px-4 rounded-xl text-sm transition shadow-sm">Simpan Data</button>
+                        <button type="button" id="btnCancel" onclick="resetForm()" class="hidden bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium py-2.5 px-4 rounded-xl text-sm transition">Batal</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="lg:col-span-8 bg-white/70 backdrop-blur-xl p-6 rounded-2xl border border-black/[0.05] shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
+                <div class="flex justify-between items-center mb-5">
+                    <h2 class="text-base font-semibold text-slate-900">Database Siswa</h2>
+                    <button onclick="clearAllData()" class="text-xs text-rose-500 hover:text-rose-700 transition">Reset Database</button>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-200/60 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                                <th class="pb-3 px-2">Siswa</th>
+                                <th class="pb-3 px-2 text-center">MTK</th>
+                                <th class="pb-3 px-2 text-center">IPA</th>
+                                <th class="pb-3 px-2 text-center">TECH</th>
+                                <th class="pb-3 px-2 text-center">ENG</th>
+                                <th class="pb-3 px-2 text-center">Rata-rata</th>
+                                <th class="pb-3 px-2 text-center">Status</th>
+                                <th class="pb-3 px-2 text-right">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="studentTableBody" class="divide-y divide-slate-100 text-sm">
+                            <!-- Injected by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 1: Impor JSON & AI Generator -->
+    <div id="importModal" class="fixed inset-0 bg-slate-900/20 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl p-6 max-w-lg w-full shadow-2xl border border-black/[0.05]">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-slate-900">Impor Data Siswa (JSON)</h3>
+                <button onclick="toggleImportModal()" class="text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+
+            <!-- AI Prompt Generator Box -->
+            <div class="bg-blue-50/70 border border-blue-100 p-3.5 rounded-xl mb-4 text-xs">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="font-semibold text-blue-900 flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5 text-[#0071E3]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"/></svg>
+                        Bantuan AI Prompt Generator
+                    </span>
+                    <button onclick="copyAiPrompt()" id="btnCopyPrompt" class="text-[#0071E3] hover:underline font-semibold">Salin Prompt AI</button>
+                </div>
+                <p class="text-slate-600 leading-relaxed">
+                    Punya foto/file lembar nilai? Salin prompt AI ini, tempelkan ke ChatGPT/Gemini bersama foto/dokumen Anda, lalu tempelkan balasan JSON-nya ke kolom di bawah.
+                </p>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <div class="flex justify-between items-center mb-1.5">
+                        <label class="block text-xs font-medium text-slate-600">Upload File / Tempel JSON Payload</label>
+                        <input type="file" id="jsonFileInput" accept=".json" onchange="handleFileUpload(event)" class="hidden">
+                        <button onclick="document.getElementById('jsonFileInput').click()" class="text-xs text-[#0071E3] hover:underline font-medium">Pilih File .json</button>
+                    </div>
+                    <textarea id="jsonPasteInput" rows="6" placeholder='[\n  {\n    "name": "Budi Santoso",\n    "scores": { "Matematika": 85, "IPA": 90, "Technology": 80, "Engineering": 75 }\n  }\n]' class="w-full px-3 py-2 text-xs font-mono bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 focus:border-[#0071E3]"></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Metode Impor</label>
+                    <select id="importMode" class="w-full px-3 py-2 text-xs border rounded-xl bg-white text-slate-700">
+                        <option value="append">Tambahkan ke Data yang Sudah Ada (Append)</option>
+                        <option value="replace">Gantikan Seluruh Data di Database (Replace)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-end gap-2">
+                <button onclick="toggleImportModal()" class="px-4 py-2 text-xs text-slate-600 hover:bg-slate-100 rounded-xl font-medium">Batal</button>
+                <button onclick="processJsonImport()" class="px-4 py-2 text-xs bg-[#0071E3] text-white rounded-xl font-medium shadow-sm hover:bg-blue-600 transition">Proses & Impor Data</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 2: Rules Config -->
+    <div id="rulesModal" class="fixed inset-0 bg-slate-900/20 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-black/[0.05]">
+            <h3 class="text-lg font-semibold text-slate-900 mb-4">Pengaturan Logika Kelulusan</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Nilai Minimal Per Mata Pelajaran</label>
+                    <input type="number" id="ruleMinSubjectScore" class="w-full px-3 py-2 border rounded-xl text-sm" value="70">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Minimal Jumlah Matpel Lulus (dari 4)</label>
+                    <input type="number" id="ruleMinPassedSubjects" min="1" max="4" class="w-full px-3 py-2 border rounded-xl text-sm" value="3">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Rata-Rata Akumulatif Minimal</label>
+                    <input type="number" id="ruleMinAccumulativeAvg" class="w-full px-3 py-2 border rounded-xl text-sm" value="75">
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end gap-2">
+                <button onclick="toggleRulesModal()" class="px-4 py-2 text-xs text-slate-600 hover:bg-slate-100 rounded-xl font-medium">Batal</button>
+                <button onclick="saveRules()" class="px-4 py-2 text-xs bg-[#0071E3] text-white rounded-xl font-medium">Simpan Parameter</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'apple_student_analytics_db_v2';
+        const RULES_KEY = 'apple_student_rules_config_v2';
+        let chartInstance = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            syncDataWithBackend();
+        });
+
+        function getRules() {
+            return JSON.parse(localStorage.getItem(RULES_KEY)) || {
+                minSubjectScore: 70,
+                minPassedSubjects: 3,
+                minAccumulativeAvg: 75
+            };
+        }
+
+        function setRules(rules) {
+            localStorage.setItem(RULES_KEY, JSON.stringify(rules));
+        }
+
+        function getLocalStudents() {
+            return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+        }
+
+        function setLocalStudents(students) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(students));
+        }
+
+        function handleFormSubmit(e) {
+            e.preventDefault();
+            const id = document.getElementById('studentId').value;
+            const name = document.getElementById('studentName').value.trim();
+            const scores = {
+                Matematika: parseFloat(document.getElementById('scoreMtk').value) || 0,
+                IPA: parseFloat(document.getElementById('scoreIpa').value) || 0,
+                Technology: parseFloat(document.getElementById('scoreTech').value) || 0,
+                Engineering: parseFloat(document.getElementById('scoreEng').value) || 0
+            };
+
+            let students = getLocalStudents();
+
+            if (id) {
+                students = students.map(s => s.id === id ? { id, name, scores } : s);
+            } else {
+                students.push({
+                    id: 'STD-' + Math.floor(100000 + Math.random() * 900000),
+                    name,
+                    scores
+                });
+            }
+
+            setLocalStudents(students);
+            resetForm();
+            syncDataWithBackend();
+        }
+
+        // --- JSON Import & Validation Logic ---
+        function toggleImportModal() {
+            const modal = document.getElementById('importModal');
+            modal.classList.toggle('hidden');
+            modal.classList.toggle('flex');
+        }
+
+        function copyAiPrompt() {
+            const promptText = `Ubah data nilai siswa dari file/gambar/teks berikut menjadi format JSON array tanpa markdown tambahan dengan skema persis seperti ini:
+[
+  {
+    "name": "Nama Siswa",
+    "scores": {
+      "Matematika": 85,
+      "IPA": 90,
+      "Technology": 80,
+      "Engineering": 75
+    }
+  }
+]
+Ketentuan:
+1. Nama matpel wajib tepat: "Matematika", "IPA", "Technology", "Engineering".
+2. Nilai berupa angka (0 - 100).
+3. Hanya berikan output JSON murni tanpa penjelasan penutup.`;
+
+            navigator.clipboard.writeText(promptText);
+            const btn = document.getElementById('btnCopyPrompt');
+            btn.innerText = 'Tersalin!';
+            setTimeout(() => btn.innerText = 'Salin Prompt AI', 2000);
+        }
+
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                document.getElementById('jsonPasteInput').value = evt.target.result;
+            };
+            reader.readAsText(file);
+        }
+
+        function processJsonImport() {
+            const rawInput = document.getElementById('jsonPasteInput').value.trim();
+            const mode = document.getElementById('importMode').value;
+
+            if (!rawInput) {
+                alert('Silakan tempelkan data JSON atau upload file terlebih dahulu.');
+                return;
+            }
+
+            try {
+                // Hapus pembungkus markdown jika dikirim oleh LLM
+                const cleanedJson = rawInput.replace(/```json|```/g, '').trim();
+                const parsed = JSON.parse(cleanedJson);
+
+                if (!Array.isArray(parsed)) {
+                    throw new Error('Format JSON harus berupa Array [...]');
+                }
+
+                // Client-side Validation & Normalization
+                const validatedStudents = parsed.map((item, index) => {
+                    if (!item.name || typeof item.name !== 'string') {
+                        throw new Error(`Baris ke-${index + 1}: Field 'name' wajib ada dan berupa string.`);
+                    }
+                    
+                    const scores = item.scores || {};
+                    const normScores = {
+                        Matematika: Math.min(100, Math.max(0, parseFloat(scores.Matematika) || 0)),
+                        IPA: Math.min(100, Math.max(0, parseFloat(scores.IPA) || 0)),
+                        Technology: Math.min(100, Math.max(0, parseFloat(scores.Technology) || 0)),
+                        Engineering: Math.min(100, Math.max(0, parseFloat(scores.Engineering) || 0))
+                    };
+
+                    return {
+                        id: item.id || ('STD-' + Math.floor(100000 + Math.random() * 900000)),
+                        name: item.name.trim(),
+                        scores: normScores
+                    };
+                });
+
+                let currentStudents = getLocalStudents();
+
+                if (mode === 'replace') {
+                    currentStudents = validatedStudents;
+                } else {
+                    currentStudents = [...currentStudents, ...validatedStudents];
+                }
+
+                setLocalStudents(currentStudents);
+                document.getElementById('jsonPasteInput').value = '';
+                toggleImportModal();
+                syncDataWithBackend();
+                alert(`Berhasil mengimpor ${validatedStudents.length} data siswa!`);
+
+            } catch (err) {
+                alert(`Gagal Mengimpor JSON: ${err.message}`);
+            }
+        }
+
+        function editStudent(id) {
+            const students = getLocalStudents();
+            const student = students.find(s => s.id === id);
+            if (!student) return;
+
+            document.getElementById('studentId').value = student.id;
+            document.getElementById('studentName').value = student.name;
+            document.getElementById('scoreMtk').value = student.scores.Matematika || 0;
+            document.getElementById('scoreIpa').value = student.scores.IPA || 0;
+            document.getElementById('scoreTech').value = student.scores.Technology || 0;
+            document.getElementById('scoreEng').value = student.scores.Engineering || 0;
+
+            document.getElementById('formTitle').innerText = 'Edit Data Siswa';
+            document.getElementById('btnSubmit').innerText = 'Perbarui';
+            document.getElementById('btnCancel').classList.remove('hidden');
+        }
+
+        function deleteStudent(id) {
+            if (!confirm('Hapus record siswa ini?')) return;
+            let students = getLocalStudents();
+            students = students.filter(s => s.id !== id);
+            setLocalStudents(students);
+            syncDataWithBackend();
+        }
+
+        function clearAllData() {
+            if (!confirm('Hapus seluruh database siswa di LocalStorage?')) return;
+            localStorage.removeItem(STORAGE_KEY);
+            syncDataWithBackend();
+        }
+
+        function resetForm() {
+            document.getElementById('studentForm').reset();
+            document.getElementById('studentId').value = '';
+            document.getElementById('formTitle').innerText = 'Input Data Siswa';
+            document.getElementById('btnSubmit').innerText = 'Simpan Data';
+            document.getElementById('btnCancel').classList.add('hidden');
+        }
+
+        async function syncDataWithBackend() {
+            const students = getLocalStudents();
+            const rules = getRules();
+
+            document.getElementById('rulesSummary').innerText = `Avg ≥ ${rules.minAccumulativeAvg} | ≥ ${rules.minPassedSubjects} Matpel ≥ ${rules.minSubjectScore}`;
+
+            try {
+                const response = await fetch('logic.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ students, rules })
+                });
+
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    renderTable(result.students);
+                    renderAnalytics(result.analytics);
+                }
+            } catch (err) {
+                console.error('API Error:', err);
+            }
+        }
+
+        function renderTable(students) {
+            const tbody = document.getElementById('studentTableBody');
+            if (!students || students.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-slate-400 text-xs">Belum ada data siswa terdaftar.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = students.map(s => {
+                const badge = s.isPassed 
+                    ? `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-600 border border-emerald-200/50">Lulus</span>`
+                    : `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-rose-50 text-rose-600 border border-rose-200/50">Gagal</span>`;
+
+                const getScoreColor = (obj) => obj.passed ? 'text-slate-700' : 'text-rose-500 font-semibold';
+
+                return `
+                    <tr class="hover:bg-slate-50/80 transition">
+                        <td class="py-3 px-2">
+                            <div class="font-medium text-slate-900">${escapeHtml(s.name)}</div>
+                            <div class="text-[10px] text-slate-400 font-mono">${s.id}</div>
+                        </td>
+                        <td class="py-3 px-2 text-center ${getScoreColor(s.scores.Matematika)}">${s.scores.Matematika.score}</td>
+                        <td class="py-3 px-2 text-center ${getScoreColor(s.scores.IPA)}">${s.scores.IPA.score}</td>
+                        <td class="py-3 px-2 text-center ${getScoreColor(s.scores.Technology)}">${s.scores.Technology.score}</td>
+                        <td class="py-3 px-2 text-center ${getScoreColor(s.scores.Engineering)}">${s.scores.Engineering.score}</td>
+                        <td class="py-3 px-2 text-center font-semibold text-slate-900">${s.average}</td>
+                        <td class="py-3 px-2 text-center">${badge}</td>
+                        <td class="py-3 px-2 text-right space-x-2">
+                            <button onclick="editStudent('${s.id}')" class="text-xs text-[#0071E3] hover:underline font-medium">Edit</button>
+                            <button onclick="deleteStudent('${s.id}')" class="text-xs text-rose-500 hover:underline font-medium">Hapus</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderAnalytics(analytics) {
+            document.getElementById('kpiTotal').innerText = analytics.totalStudents;
+            document.getElementById('kpiPassRate').innerText = `${analytics.overallPassRate}%`;
+            document.getElementById('kpiAvgScore').innerText = analytics.overallAverage;
+            document.getElementById('kpiPassFailRatio').innerText = `${analytics.totalPassed} / ${analytics.totalFailed}`;
+            document.getElementById('insightText').innerText = analytics.insight;
+
+            const ctx = document.getElementById('analyticsChart').getContext('2d');
+            const subjects = Object.keys(analytics.subjectAnalytics);
+            const averages = subjects.map(k => analytics.subjectAnalytics[k].average);
+            const medians = subjects.map(k => analytics.subjectAnalytics[k].median);
+
+            if (chartInstance) chartInstance.destroy();
+
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: subjects,
+                    datasets: [
+                        {
+                            label: 'Rata-Rata (Mean)',
+                            data: averages,
+                            backgroundColor: '#0071E3',
+                            borderRadius: 6,
+                            barThickness: 16
+                        },
+                        {
+                            label: 'Nilai Tengah (Median)',
+                            data: medians,
+                            backgroundColor: '#10B981',
+                            borderRadius: 6,
+                            barThickness: 16
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { min: 0, max: 100, grid: { color: 'rgba(0, 0, 0, 0.04)' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        function toggleRulesModal() {
+            const modal = document.getElementById('rulesModal');
+            const rules = getRules();
+            document.getElementById('ruleMinSubjectScore').value = rules.minSubjectScore;
+            document.getElementById('ruleMinPassedSubjects').value = rules.minPassedSubjects;
+            document.getElementById('ruleMinAccumulativeAvg').value = rules.minAccumulativeAvg;
+            
+            modal.classList.toggle('hidden');
+            modal.classList.toggle('flex');
+        }
+
+        function saveRules() {
+            const rules = {
+                minSubjectScore: parseFloat(document.getElementById('ruleMinSubjectScore').value) || 0,
+                minPassedSubjects: parseInt(document.getElementById('ruleMinPassedSubjects').value) || 0,
+                minAccumulativeAvg: parseFloat(document.getElementById('ruleMinAccumulativeAvg').value) || 0
+            };
+            setRules(rules);
+            toggleRulesModal();
+            syncDataWithBackend();
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+        }
+    </script>
+</body>
+</html>

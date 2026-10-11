@@ -1,0 +1,35 @@
+<?php
+
+$name = "Wafi Annafis";
+$age = 17;
+$class = 11;
+$height = 165.3;
+$address = "Jl. Mahar Martanegara";
+$relationship_status = false;
+$gender = "Male";
+$specialization = "Computer Science";
+$subject = ["Math", "Computer Science", "Sport"];
+
+if ($relationship_status == true) {
+    $status_label = "Taken";
+} else {
+    $status_label = "Single";
+}
+
+
+echo "Full Name : " . $name . "\n";
+echo "Age : " . $age . " years old\n";
+echo "Gender : " . $gender . "\n";
+echo "Height : " . $height . " cm\n";
+echo "Address : " . $address . "\n\n";
+
+
+echo "Class Level : Year " . $class . "\n";
+echo "Specialization : " . $specialization . "\n";
+echo "Focus Area : " . $subject[1] . "\n";
+echo "All Subjects : " . $subject[0] . ", " . $subject[1] . ", " . $subject[2] . "\n\n";
+
+
+echo "Current Status : " . $status_label . "\n";
+
+?>

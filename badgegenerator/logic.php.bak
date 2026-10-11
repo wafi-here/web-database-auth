@@ -1,0 +1,174 @@
+<?php
+/**
+ * logic.php - CRUD Handler for `biodata_siswa` table
+ */
+
+// 1. Database Connection Configuration
+define('DB_HOST', 'localhost');
+define('DB_USER', 'root');
+define('DB_PASS', '');
+define('DB_NAME', 'database_siswa');
+
+function getDBConnection() {
+    try {
+        $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4";
+        $options = [
+            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES   => false,
+        ];
+        return new PDO($dsn, DB_USER, DB_PASS, $options);
+    } catch (PDOException $e) {
+        die("Database Connection Error: " . $e->getMessage());
+    }
+}
+
+// 2. Helper: Handle Photo Uploads
+function handlePhotoUpload($file, $oldPhoto = null) {
+    $uploadDir = 'uploads/';
+    
+    // Create directory if it doesn't exist
+    if (!is_dir($uploadDir)) {
+        mkdir($uploadDir, 0755, true);
+    }
+
+    if (isset($file['foto']) && $file['foto']['error'] === UPLOAD_ERR_OK) {
+        $fileTmpPath = $file['foto']['tmp_name'];
+        $fileName    = $file['foto']['name'];
+        $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+        
+        $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+        if (in_array($fileExtension, $allowedExtensions)) {
+            // Generate unique filename to avoid overwrites
+            $newFileName = md5(time() . $fileName) . '.' . $fileExtension;
+            $destPath = $uploadDir . $newFileName;
+
+            if (move_uploaded_file($fileTmpPath, $destPath)) {
+                // Remove old photo if updating
+                if ($oldPhoto && file_exists($uploadDir . $oldPhoto)) {
+                    unlink($uploadDir . $oldPhoto);
+                }
+                return $newFileName;
+            }
+        }
+    }
+    return $oldPhoto; // Return existing photo if no new valid file uploaded
+}
+
+// 3. CREATE: Add New Student
+function createSiswa(array $data, array $files = []) {
+    $pdo = getDBConnection();
+    
+    $fotoName = handlePhotoUpload($files);
+
+    $sql = "INSERT INTO biodata_siswa 
+            (nis, nisN, nama, kelas, jurusan, rombel, alamat, nomor_hp, foto, cita_cita) 
+            VALUES 
+            (:nis, :nisN, :nama, :kelas, :jurusan, :rombel, :alamat, :nomor_hp, :foto, :cita_cita)";
+
+    $stmt = $pdo->prepare($sql);
+    return $stmt->execute([
+        ':nis'       => $data['nis'],
+        ':nisN'      => $data['nisN'],
+        ':nama'      => $data['nama'],
+        ':kelas'     => $data['kelas'],
+        ':jurusan'   => $data['jurusan'],
+        ':rombel'    => $data['rombel'],
+        ':alamat'    => $data['alamat'],
+        ':nomor_hp'  => $data['nomor_hp'],
+        ':foto'      => $fotoName,
+        ':cita_cita' => !empty($data['cita_cita']) ? $data['cita_cita'] : 'Belum Ada'
+    ]);
+}
+
+// 4. READ: Get All Students
+function getAllSiswa() {
+    $pdo = getDBConnection();
+    $stmt = $pdo->query("SELECT * FROM biodata_siswa ORDER BY id DESC");
+    return $stmt->fetchAll();
+}
+
+// 4b. READ: Get Single Student by ID
+function getSiswaById($id) {
+    $pdo = getDBConnection();
+    $stmt = $pdo->prepare("SELECT * FROM biodata_siswa WHERE id = :id");
+    $stmt->execute([':id' => $id]);
+    return $stmt->fetch();
+}
+
+// 5. UPDATE: Edit Student Record
+function updateSiswa($id, array $data, array $files = []) {
+    $pdo = getDBConnection();
+    
+    // Fetch current student to manage photo replacement
+    $currentData = getSiswaById($id);
+    if (!$currentData) {
+        return false;
+    }
+
+    $fotoName = handlePhotoUpload($files, $currentData['foto']);
+
+    $sql = "UPDATE biodata_siswa SET 
+            nis = :nis, 
+            nisN = :nisN, 
+            nama = :nama, 
+            kelas = :kelas, 
+            jurusan = :jurusan, 
+            rombel = :rombel, 
+            alamat = :alamat, 
+            nomor_hp = :nomor_hp, 
+            foto = :foto, 
+            cita_cita = :cita_cita 
+            WHERE id = :id";
+
+    $stmt = $pdo->prepare($sql);
+    return $stmt->execute([
+        ':id'        => $id,
+        ':nis'       => $data['nis'],
+        ':nisN'      => $data['nisN'],
+        ':nama'      => $data['nama'],
+        ':kelas'     => $data['kelas'],
+        ':jurusan'   => $data['jurusan'],
+        ':rombel'    => $data['rombel'],
+        ':alamat'    => $data['alamat'],
+        ':nomor_hp'  => $data['nomor_hp'],
+        ':foto'      => $fotoName,
+        ':cita_cita' => !empty($data['cita_cita']) ? $data['cita_cita'] : 'Belum Ada'
+    ]);
+}
+
+// 6. DELETE: Remove Student Record
+function deleteSiswa($id) {
+    $pdo = getDBConnection();
+
+    // Delete photo from server storage if present
+    $siswa = getSiswaById($id);
+    if ($siswa && $siswa['foto'] && file_exists('uploads/' . $siswa['foto'])) {
+        unlink('uploads/' . $siswa['foto']);
+    }
+
+    $stmt = $pdo->prepare("DELETE FROM biodata_siswa WHERE id = :id");
+    return $stmt->execute([':id' => $id]);
+}
+
+// 7. Request Router Example (Optional Interface Integration)
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? '';
+
+    switch ($action) {
+        case 'create':
+            createSiswa($_POST, $_FILES);
+            header("Location: index.php?status=created");
+            exit;
+
+        case 'update':
+            updateSiswa($_POST['id'], $_POST, $_FILES);
+            header("Location: index.php?status=updated");
+            exit;
+
+        case 'delete':
+            deleteSiswa($_POST['id']);
+            header("Location: index.php?status=deleted");
+            exit;
+    }
+}

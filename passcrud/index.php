@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Evaluasi Siswa - Robust Analytics</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Internal CSS: Separation of Styles -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        /* Base & Global Styles */
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            letter-spacing: -0.011em;
+            background-color: #F5F5F7;
+            color: #1e293b;
+            height: 100%;
+            display: none
+        }
+
+        /* Glassmorphism Cards */
+        .glass-card {
+            background-color: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
+            border-radius: 1rem;
+            padding: 1.5rem;
+        }
+
+        .glass-badge {
+            background-color: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
+            border-radius: 1rem;
+            padding: 0.625rem 1rem;
+        }
+
+        /* Form Control Components */
+        .form-input {
+            width: 100%;
+            padding: 0.625rem 0.875rem;
+            font-size: 0.875rem;
+            background-color: rgba(248, 250, 252, 0.5);
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem;
+            transition: all 0.2s ease;
+        }
+        .form-input:focus {
+            background-color: #ffffff;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(0, 113, 227, 0.3);
+            border-color: #0071E3;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #64748b;
+            margin-bottom: 0.375rem;
+        }
+
+        /* Buttons */
+        .btn-primary {
+            background-color: #0071E3;
+            color: #ffffff;
+            font-weight: 500;
+            padding: 0.625rem 1rem;
+            border-radius: 0.75rem;
+            font-size: 0.875rem;
+            transition: background-color 0.2s ease;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .btn-primary:hover {
+            background-color: #2563eb;
+        }
+
+        .btn-secondary {
+            background-color: #f1f5f9;
+            color: #475569;
+            font-weight: 500;
+            padding: 0.625rem 1rem;
+            border-radius: 0.75rem;
+            font-size: 0.875rem;
+            transition: background-color 0.2s ease;
+        }
+        .btn-secondary:hover {
+            background-color: #e2e8f0;
+        }
+
+        /* Modal Component */
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(15, 23, 42, 0.2);
+            backdrop-filter: blur(4px);
+            z-index: 50;
+            padding: 1rem;
+        }
+        .modal-content {
+            background-color: #ffffff;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            max-width: 32rem;
+            width: 100%;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        /* Table Components */
+        .table-header {
+            border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+            font-size: 11px;
+            font-weight: 600;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding-bottom: 0.75rem;
+            padding-left: 0.5rem;
+            padding-right: 0.5rem;
+        }
+    </style>
+    <script>
+        (async function verifyAccess() {
+            try {
+                // Verifikasi Cookie HttpOnly ke server PHP & Database
+                const response = await fetch('verify.php', {
+                    method: 'POST',
+                    credentials: 'same-origin' // Otomatis mengirimkan HttpOnly cookie
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.status === 'success') {
+                    // Cookie valid: Tampilkan body
+                    const showBody = () => {
+                        if (document.body) {
+                            document.body.style.display = 'block';
+                        }
+                    };
+
+                    if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', showBody);
+                    } else {
+                        showBody();
+                    }
+                } else {
+                    // Cookie tidak valid atau expired -> alihkan ke login.php
+                    window.location.href = 'login.php';
+                }
+            } catch (error) {
+                window.location.href = 'login.php';
+            }
+        })();
+    </script>
+</head>
+<body class="antialiased selection:bg-blue-500 selection:text-white">
+
+    <div class="max-w-7xl mx-auto px-6 py-10">
+
+        <!-- Header -->
+        <header class="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-semibold tracking-tight text-slate-900">Evaluasi Siswa</h1>
+                <p class="text-sm text-slate-500 mt-1">Platform Manajemen & Robust Analytics Akademik (Database Connected)</p>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <button onclick="toggleImportModal()" class="glass-badge flex items-center gap-2 text-slate-700 text-xs font-semibold hover:bg-white transition">
+                    <svg class="w-4 h-4 text-[#0071E3]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                    Impor Data JSON
+                </button>
+
+                <button onclick="handleLogout()" class="btn-secondary">Logout</button>
+
+                <div class="glass-badge flex items-center gap-3">
+                    <div class="text-xs">
+                        <span class="text-slate-400 block font-medium">Syarat Lulus</span>
+                        <span class="text-slate-700 font-semibold" id="rulesSummary">Avg ≥ 75 | ≥ 3 Matpel ≥ 70</span>
+                    </div>
+                    <button onclick="toggleRulesModal()" class="ml-2 text-xs text-[#0071E3] hover:text-blue-700 font-medium transition">Ubah Rules</button>
+                </div>
+
+                <a href="http://localhost/badgegenerator" class="glass-badge flex items-center gap-2 text-slate-700 text-xs font-semibold hover:bg-white transition">
+                    <svg class="w-4 h-4 text-[#0071E3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                    </svg>
+                    BadgeGeneratorAndMyProfile
+                </a>
+            </div>
+        </header>
+
+        <!-- KPI Metrics Grid -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+            <div class="glass-card">
+                <span class="text-xs font-medium text-slate-400 tracking-wide uppercase">Total Siswa</span>
+                <div id="kpiTotal" class="text-3xl font-semibold text-slate-900 mt-2">0</div>
+            </div>
+            <div class="glass-card">
+                <span class="text-xs font-medium text-slate-400 tracking-wide uppercase">Tingkat Kelulusan</span>
+                <div id="kpiPassRate" class="text-3xl font-semibold text-emerald-600 mt-2">0%</div>
+            </div>
+            <div class="glass-card">
+                <span class="text-xs font-medium text-slate-400 tracking-wide uppercase">Rata-rata Keseluruhan</span>
+                <div id="kpiAvgScore" class="text-3xl font-semibold text-[#0071E3] mt-2">0</div>
+            </div>
+            <div class="glass-card">
+                <span class="text-xs font-medium text-slate-400 tracking-wide uppercase">Siswa Lulus / Gagal</span>
+                <div id="kpiPassFailRatio" class="text-3xl font-semibold text-slate-800 mt-2">0 / 0</div>
+            </div>
+        </section>
+
+        <!-- Analytics Section -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+            <div class="lg:col-span-2 glass-card">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-base font-semibold text-slate-800">Perbandingan Rata-Rata vs Median (Bebas Outlier)</h2>
+                    <div class="flex items-center gap-4 text-xs font-medium">
+                        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-[#0071E3]"></span> Mean</span>
+                        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-emerald-500"></span> Median</span>
+                    </div>
+                </div>
+                <div class="h-64">
+                    <canvas id="analyticsChart"></canvas>
+                </div>
+            </div>
+
+            <div class="glass-card flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center gap-2 mb-3">
+                        <div class="w-2.5 h-2.5 rounded-full bg-[#0071E3]"></div>
+                        <h2 class="text-base font-semibold text-slate-800">Robust Insight Engine</h2>
+                    </div>
+                    <p id="insightText" class="text-sm text-slate-600 leading-relaxed mt-2">
+                        Memuat kalkulasi analitik...
+                    </p>
+                </div>
+                <div class="pt-4 border-t border-slate-100 text-xs text-slate-400">
+                    Evaluasi otomatis menggunakan kombinasi Bobot Median & Pass Rate.
+                </div>
+            </div>
+        </section>
+
+        <!-- Form and Table Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div class="lg:col-span-4 glass-card h-fit">
+                <h2 id="formTitle" class="text-base font-semibold text-slate-900 mb-5">Input Data Siswa</h2>
+
+                <form id="studentForm" onsubmit="handleFormSubmit(event)" class="space-y-4">
+                    <input type="hidden" id="studentId">
+
+                    <div>
+                        <label class="form-label">Nama Lengkap</label>
+                        <input type="text" id="studentName" required placeholder="Contoh: Maria" class="form-input">
+                    </div>
+
+                    <div>
+                        <label class="form-label">Kelas</label>
+                        <input type="text" id="studentKelas" required placeholder="Contoh: XI" class="form-input">
+                    </div>
+
+                    <div class="pt-2 border-t border-slate-100">
+                        <span class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Nilai Mata Pelajaran</span>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="form-label">Matematika</label>
+                                <input type="number" id="scoreMtk" min="0" max="100" required class="form-input">
+                            </div>
+                            <div>
+                                <label class="form-label">IPA</label>
+                                <input type="number" id="scoreIpa" min="0" max="100" required class="form-input">
+                            </div>
+                            <div>
+                                <label class="form-label">Technology</label>
+                                <input type="number" id="scoreTech" min="0" max="100" required class="form-input">
+                            </div>
+                            <div>
+                                <label class="form-label">Engineering</label>
+                                <input type="number" id="scoreEng" min="0" max="100" required class="form-input">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pt-4 flex gap-2">
+                        <button type="submit" id="btnSubmit" class="btn-primary flex-1">Simpan Data</button>
+                        <button type="button" id="btnCancel" onclick="resetForm()" class="btn-secondary hidden">Batal</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="lg:col-span-8 glass-card">
+                <div class="flex justify-between items-center mb-5">
+                    <h2 class="text-base font-semibold text-slate-900">Database Siswa MySQL (`nilai_siswa`)</h2>
+                    <button onclick="clearAllData()" class="text-xs text-rose-500 hover:text-rose-700 transition font-medium">Kosongkan Database</button>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr>
+                                <th class="table-header">Siswa</th>
+                                <th class="table-header text-center">Kelas</th>
+                                <th class="table-header text-center">MTK</th>
+                                <th class="table-header text-center">IPA</th>
+                                <th class="table-header text-center">TECH</th>
+                                <th class="table-header text-center">ENG</th>
+                                <th class="table-header text-center">Rata-rata</th>
+                                <th class="table-header text-center">Status</th>
+                                <th class="table-header text-right">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="studentTableBody" class="divide-y divide-slate-100 text-sm">
+                            <!-- Injected by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 1: Impor JSON -->
+    <div id="importModal" class="modal-backdrop hidden items-center justify-center">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-slate-900">Impor Data Siswa (JSON)</h3>
+                <button onclick="toggleImportModal()" class="text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+
+            <div class="bg-blue-50/70 border border-blue-100 p-3.5 rounded-xl mb-4 text-xs">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="font-semibold text-blue-900 flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5 text-[#0071E3]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"/></svg>
+                        Bantuan AI Prompt Generator
+                    </span>
+                    <button onclick="copyAiPrompt()" id="btnCopyPrompt" class="text-[#0071E3] hover:underline font-semibold">Salin Prompt AI</button>
+                </div>
+                <p class="text-slate-600 leading-relaxed">
+                    Salin prompt AI ini ke ChatGPT/Gemini untuk mengonversi lembar nilai Anda menjadi format JSON yang kompatibel dengan database.
+                </p>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <div class="flex justify-between items-center mb-1.5">
+                        <label class="form-label mb-0">Upload File / Tempel JSON Payload</label>
+                        <input type="file" id="jsonFileInput" accept=".json" onchange="handleFileUpload(event)" class="hidden">
+                        <button onclick="document.getElementById('jsonFileInput').click()" class="text-xs text-[#0071E3] hover:underline font-medium">Pilih File .json</button>
+                    </div>
+                    <textarea id="jsonPasteInput" rows="6" placeholder='[\n  {\n    "name": "Maria",\n    "kelas": "XI",\n    "scores": { "Matematika": 98, "IPA": 89, "Technology": 78, "Engineering": 100 }\n  }\n]' class="w-full px-3 py-2 text-xs font-mono bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 focus:border-[#0071E3]"></textarea>
+                </div>
+
+                <div>
+                    <label class="form-label">Metode Impor</label>
+                    <select id="importMode" class="w-full px-3 py-2 text-xs border rounded-xl bg-white text-slate-700">
+                        <option value="append">Tambahkan ke Database (Append)</option>
+                        <option value="replace">Gantikan Seluruh Data Database (Replace)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-end gap-2">
+                <button onclick="toggleImportModal()" class="btn-secondary text-xs">Batal</button>
+                <button onclick="processJsonImport()" class="btn-primary text-xs">Proses & Impor Data</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 2: Rules Config -->
+    <div id="rulesModal" class="modal-backdrop hidden items-center justify-center">
+        <div class="modal-content max-w-md">
+            <h3 class="text-lg font-semibold text-slate-900 mb-4">Pengaturan Logika Kelulusan</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="form-label">Nilai Minimal Per Mata Pelajaran</label>
+                    <input type="number" id="ruleMinSubjectScore" class="form-input" value="70">
+                </div>
+                <div>
+                    <label class="form-label">Minimal Jumlah Matpel Lulus (dari 4)</label>
+                    <input type="number" id="ruleMinPassedSubjects" min="1" max="4" class="form-input" value="3">
+                </div>
+                <div>
+                    <label class="form-label">Rata-Rata Akumulatif Minimal</label>
+                    <input type="number" id="ruleMinAccumulativeAvg" class="form-input" value="75">
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end gap-2">
+                <button onclick="toggleRulesModal()" class="btn-secondary text-xs">Batal</button>
+                <button onclick="saveRules()" class="btn-primary text-xs">Simpan Parameter</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification UI -->
+    <div id="toastNotification" class="fixed bottom-5 right-5 z-50 hidden max-w-md bg-rose-600 text-white text-xs font-medium px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 border border-rose-500 transition-all transform translate-y-0">
+        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <span id="toastMessage">Pesan error...</span>
+    </div>
+
+    <!-- Logic Controller -->
+    <script>
+        const RULES_KEY = 'apple_student_rules_config_v2';
+        let chartInstance = null;
+        let cachedStudents = [];
+        let toastTimeout = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            syncDataWithBackend('fetch');
+        });
+
+        function getRules() {
+            return JSON.parse(localStorage.getItem(RULES_KEY)) || {
+                minSubjectScore: 70,
+                minPassedSubjects: 3,
+                minAccumulativeAvg: 75
+            };
+        }
+
+        function setRules(rules) {
+            localStorage.setItem(RULES_KEY, JSON.stringify(rules));
+        }
+
+        function showNotification(message, type = 'error') {
+            const toast = document.getElementById('toastNotification');
+            const toastMsg = document.getElementById('toastMessage');
+            if (!toast || !toastMsg) return;
+            
+            toastMsg.innerText = message;
+            
+            if (type === 'error') {
+                toast.className = "fixed bottom-5 right-5 z-50 max-w-md bg-rose-600 text-white text-xs font-medium px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 border border-rose-500 transition-all transform translate-y-0";
+            } else {
+                toast.className = "fixed bottom-5 right-5 z-50 max-w-md bg-emerald-600 text-white text-xs font-medium px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 border border-emerald-500 transition-all transform translate-y-0";
+            }
+
+            toast.classList.remove('hidden');
+
+            if (toastTimeout) clearTimeout(toastTimeout);
+
+            toastTimeout = setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 4000);
+        }
+
+        async function syncDataWithBackend(action = 'fetch', payload = {}) {
+            const rules = getRules();
+            document.getElementById('rulesSummary').innerText = `Avg ≥ ${rules.minAccumulativeAvg} | ≥ ${rules.minPassedSubjects} Matpel ≥ ${rules.minSubjectScore}`;
+
+            try {
+                const response = await fetch('logic.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin', // Mengirim HttpOnly cookie secara otomatis
+                    body: JSON.stringify({ action, rules, ...payload })
+                });
+
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    cachedStudents = result.students || [];
+                    renderTable(result.students);
+                    renderAnalytics(result.analytics);
+                } else {
+                    showNotification(result.message, 'error');
+                }
+            } catch (err) {
+                console.error('API Error:', err);
+                showNotification('Terjadi kesalahan jaringan atau koneksi server.', 'error');
+            }
+        }
+
+        function handleFormSubmit(e) {
+            e.preventDefault();
+            const id = document.getElementById('studentId').value;
+            const name = document.getElementById('studentName').value.trim();
+            const kelas = document.getElementById('studentKelas').value.trim();
+            const scores = {
+                Matematika: parseFloat(document.getElementById('scoreMtk').value) || 0,
+                IPA: parseFloat(document.getElementById('scoreIpa').value) || 0,
+                Technology: parseFloat(document.getElementById('scoreTech').value) || 0,
+                Engineering: parseFloat(document.getElementById('scoreEng').value) || 0
+            };
+
+            syncDataWithBackend('save', {
+                student: { id, name, kelas, scores }
+            });
+
+            resetForm();
+        }
+
+        function editStudent(id) {
+            const student = cachedStudents.find(s => s.id === id);
+            if (!student) return;
+
+            document.getElementById('studentId').value = student.id;
+            document.getElementById('studentName').value = student.name;
+            document.getElementById('studentKelas').value = student.kelas || '';
+            document.getElementById('scoreMtk').value = student.scores.Matematika.score;
+            document.getElementById('scoreIpa').value = student.scores.IPA.score;
+            document.getElementById('scoreTech').value = student.scores.Technology.score;
+            document.getElementById('scoreEng').value = student.scores.Engineering.score;
+
+            document.getElementById('formTitle').innerText = 'Edit Data Siswa';
+            document.getElementById('btnSubmit').innerText = 'Perbarui Data DB';
+            document.getElementById('btnCancel').classList.remove('hidden');
+        }
+
+        function deleteStudent(id) {
+            if (!confirm('Hapus record siswa ini dari database MySQL?')) return;
+            syncDataWithBackend('delete', { id });
+        }
+
+        function clearAllData() {
+            if (!confirm('Peringatan: Kosongkan seluruh isi tabel nilai_siswa di MySQL?')) return;
+            syncDataWithBackend('clear');
+        }
+
+        function resetForm() {
+            document.getElementById('studentForm').reset();
+            document.getElementById('studentId').value = '';
+            document.getElementById('formTitle').innerText = 'Input Data Siswa';
+            document.getElementById('btnSubmit').innerText = 'Simpan Data';
+            document.getElementById('btnCancel').classList.add('hidden');
+        }
+
+        function toggleImportModal() {
+            const modal = document.getElementById('importModal');
+            modal.classList.toggle('hidden');
+            modal.classList.toggle('flex');
+        }
+
+        function copyAiPrompt() {
+            const promptText = `Ubah data nilai siswa dari file/gambar/teks berikut menjadi format JSON array tanpa markdown tambahan dengan skema persis seperti ini:
+                [
+                {
+                    "name": "Nama Siswa",
+                    "kelas": "XI",
+                    "scores": {
+                    "Matematika": 85,
+                    "IPA": 90,
+                    "Technology": 80,
+                    "Engineering": 75
+                    }
+                }
+                ]
+                Ketentuan:
+                1. Nama matpel wajib tepat: "Matematika", "IPA", "Technology", "Engineering".
+                2. Nilai berupa angka (0 - 100).
+                3. Hanya berikan output JSON murni tanpa penjelasan penutup.`;
+
+            navigator.clipboard.writeText(promptText);
+            const btn = document.getElementById('btnCopyPrompt');
+            btn.innerText = 'Tersalin!';
+            setTimeout(() => btn.innerText = 'Salin Prompt AI', 2000);
+        }
+
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                document.getElementById('jsonPasteInput').value = evt.target.result;
+            };
+            reader.readAsText(file);
+        }
+
+        function processJsonImport() {
+            const rawInput = document.getElementById('jsonPasteInput').value.trim();
+            const mode = document.getElementById('importMode').value;
+
+            if (!rawInput) {
+                showNotification('Silakan tempelkan data JSON atau upload file terlebih dahulu.', 'error');
+                return;
+            }
+
+            try {
+                const cleanedJson = rawInput.replace(/```json|```/g, '').trim();
+                const parsed = JSON.parse(cleanedJson);
+
+                if (!Array.isArray(parsed)) throw new Error('Format JSON harus berupa Array [...]');
+
+                const validatedStudents = parsed.map((item, index) => {
+                    if (!item.name || typeof item.name !== 'string') {
+                        throw new Error(`Baris ke-${index + 1}: Field 'name' wajib ada.`);
+                    }
+                    const scores = item.scores || {};
+                    return {
+                        name: item.name.trim(),
+                        kelas: item.kelas || 'XI',
+                        scores: {
+                            Matematika: Math.min(100, Math.max(0, parseFloat(scores.Matematika) || 0)),
+                            IPA: Math.min(100, Math.max(0, parseFloat(scores.IPA) || 0)),
+                            Technology: Math.min(100, Math.max(0, parseFloat(scores.Technology) || 0)),
+                            Engineering: Math.min(100, Math.max(0, parseFloat(scores.Engineering) || 0))
+                        }
+                    };
+                });
+
+                syncDataWithBackend('import', { students: validatedStudents, mode });
+                document.getElementById('jsonPasteInput').value = '';
+                toggleImportModal();
+
+            } catch (err) {
+                showNotification(`Gagal Mengimpor JSON: ${err.message}`, 'error');
+            }
+        }
+
+        function renderTable(students) {
+            const tbody = document.getElementById('studentTableBody');
+            if (!students || students.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" class="py-8 text-center text-slate-400 text-xs">Belum ada data siswa terdaftar di database.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = students.map(s => {
+                const badge = s.isPassed 
+                    ? `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-600 border border-emerald-200/50">Lulus</span>`
+                    : `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-rose-50 text-rose-600 border border-rose-200/50">Gagal</span>`;
+
+                const getScoreColor = (obj) => obj.passed ? 'text-slate-700' : 'text-rose-500 font-semibold';
+
+                return `
+                    <tr class="hover:bg-slate-50/80 transition">
+                        <td class="py-3 px-2">
+                            <div class="font-medium text-slate-900">${escapeHtml(s.name)}</div>
+                            <div class="text-[10px] text-slate-400 font-mono">${s.id}</div>
+                        </td>
+                        <td class="py-3 px-2 text-center text-xs font-semibold text-slate-600">${escapeHtml(s.kelas || '-')}</td>
+                        <td class="py-3 px-2 text-center ${getScoreColor(s.scores.Matematika)}">${s.scores.Matematika.score}</td>
+                        <td class="py-3 px-2 text-center ${getScoreColor(s.scores.IPA)}">${s.scores.IPA.score}</td>
+                        <td class="py-3 px-2 text-center ${getScoreColor(s.scores.Technology)}">${s.scores.Technology.score}</td>
+                        <td class="py-3 px-2 text-center ${getScoreColor(s.scores.Engineering)}">${s.scores.Engineering.score}</td>
+                        <td class="py-3 px-2 text-center font-semibold text-slate-900">${s.average}</td>
+                        <td class="py-3 px-2 text-center">${badge}</td>
+                        <td class="py-3 px-2 text-right space-x-2">
+                            <button onclick="editStudent('${s.id}')" class="text-xs text-[#0071E3] hover:underline font-medium">Edit</button>
+                            <button onclick="deleteStudent('${s.id}')" class="text-xs text-rose-500 hover:underline font-medium">Hapus</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderAnalytics(analytics) {
+            document.getElementById('kpiTotal').innerText = analytics.totalStudents;
+            document.getElementById('kpiPassRate').innerText = `${analytics.overallPassRate}%`;
+            document.getElementById('kpiAvgScore').innerText = analytics.overallAverage;
+            document.getElementById('kpiPassFailRatio').innerText = `${analytics.totalPassed} / ${analytics.totalFailed}`;
+            document.getElementById('insightText').innerText = analytics.insight;
+
+            const ctx = document.getElementById('analyticsChart').getContext('2d');
+            const subjects = Object.keys(analytics.subjectAnalytics);
+            const averages = subjects.map(k => analytics.subjectAnalytics[k].average);
+            const medians = subjects.map(k => analytics.subjectAnalytics[k].median);
+
+            if (chartInstance) chartInstance.destroy();
+
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: subjects,
+                    datasets: [
+                        {
+                            label: 'Rata-Rata (Mean)',
+                            data: averages,
+                            backgroundColor: '#0071E3',
+                            borderRadius: 6,
+                            barThickness: 16
+                        },
+                        {
+                            label: 'Nilai Tengah (Median)',
+                            data: medians,
+                            backgroundColor: '#10B981',
+                            borderRadius: 6,
+                            barThickness: 16
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { min: 0, max: 100, grid: { color: 'rgba(0, 0, 0, 0.04)' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        function toggleRulesModal() {
+            const modal = document.getElementById('rulesModal');
+            const rules = getRules();
+            document.getElementById('ruleMinSubjectScore').value = rules.minSubjectScore;
+            document.getElementById('ruleMinPassedSubjects').value = rules.minPassedSubjects;
+            document.getElementById('ruleMinAccumulativeAvg').value = rules.minAccumulativeAvg;
+
+            modal.classList.toggle('hidden');
+            modal.classList.toggle('flex');
+        }
+
+        function saveRules() {
+            const rules = {
+                minSubjectScore: parseFloat(document.getElementById('ruleMinSubjectScore').value) || 0,
+                minPassedSubjects: parseInt(document.getElementById('ruleMinPassedSubjects').value) || 0,
+                minAccumulativeAvg: parseFloat(document.getElementById('ruleMinAccumulativeAvg').value) || 0
+            };
+            setRules(rules);
+            toggleRulesModal();
+            syncDataWithBackend('fetch');
+        }
+
+        function escapeHtml(str) {
+            return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+        }
+
+        async function handleLogout() {
+            try {
+                const response = await fetch('logout.php', {
+                    method: 'POST',
+                    credentials: 'same-origin' // Mengirim cookie HttpOnly ke server
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.status === 'success') {
+                    // Arahkan pengguna kembali ke halaman login
+                    window.location.href = 'login.php';
+                } else {
+                    alert('Gagal melakukan logout.');
+                }
+            } catch (error) {
+                console.error('Error saat logout:', error);
+            }
+        }
+    </script>
+</body>
+</html>

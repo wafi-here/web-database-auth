@@ -1,0 +1,169 @@
+<?php
+header('Content-Type: application/json; charset=utf-8');
+
+// Set header CORS jika dibutuhkan untuk lingkungan development
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
+// 1. Membaca Raw Body Payload dari HTTP POST Request
+$rawInput = file_get_contents('php://input'); //database
+$data = json_decode($rawInput, true); //database
+
+if (!$data) {
+    http_response_code(400);
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Payload JSON tidak valid atau kosong.'
+    ]);
+    exit();
+}
+
+$students = $data['students'] ?? []; //database
+$rules = $data['rules'] ?? [ 
+    'minSubjectScore' => 70,
+    'minPassedSubjects' => 3,
+    'minAccumulativeAvg' => 75
+];
+
+// Fallback Sanitasi Aturan
+$minSubjectScore = (float)($rules['minSubjectScore'] ?? 70);
+$minPassedSubjects = (int)($rules['minPassedSubjects'] ?? 3);
+$minAccumulativeAvg = (float)($rules['minAccumulativeAvg'] ?? 75);
+
+$processedStudents = [];
+$totalStudents = count($students);
+$totalPassed = 0;
+$totalFailed = 0;
+$sumOverallAvg = 0;
+
+$subjectScores = [
+    'Matematika' => [],
+    'IPA' => [],
+    'Technology' => [],
+    'Engineering' => []
+];
+
+// 2. Pemrosesan Data Siswa Berdasarkan Logika Aturan (Rules Engine)
+foreach ($students as $student) {
+    $name = isset($student['name']) ? trim($student['name']) : 'Tanpa Nama'; 
+    $id = $student['id'] ?? ('STD-' . rand(100000, 999999));
+    $rawScores = $student['scores'] ?? [];
+
+    $studentScoresFormatted = [];
+    $passedSubjectsCount = 0;
+    $totalScore = 0;
+
+    $subjects = ['Matematika', 'IPA', 'Technology', 'Engineering'];
+
+    foreach ($subjects as $subj) {
+        $scoreVal = isset($rawScores[$subj]) ? (float)$rawScores[$subj] : 0;
+        // Clamp nilai agar berada di rentang 0 - 100
+        $scoreVal = max(0, min(100, $scoreVal));
+
+        $isSubjectPassed = $scoreVal >= $minSubjectScore;
+        if ($isSubjectPassed) {
+            $passedSubjectsCount++;
+        }
+
+        $studentScoresFormatted[$subj] = [
+            'score' => $scoreVal,
+            'passed' => $isSubjectPassed
+        ];
+
+        $subjectScores[$subj][] = $scoreVal;
+        $totalScore += $scoreVal;
+    }
+
+    $average = count($subjects) > 0 ? round($totalScore / count($subjects), 2) : 0;
+    $sumOverallAvg += $average;
+
+    // Evaluasi Logika Kelulusan Gabungan
+    $isPassed = ($passedSubjectsCount >= $minPassedSubjects) && ($average >= $minAccumulativeAvg);
+
+    if ($isPassed) {
+        $totalPassed++;
+    } else {
+        $totalFailed++;
+    }
+
+    $processedStudents[] = [
+        'id' => $id,
+        'name' => $name,
+        'scores' => $studentScoresFormatted,
+        'average' => $average,
+        'isPassed' => $isPassed
+    ];
+}
+
+// Helper Function: Kalkulasi Median (Nilai Tengah)
+function calculateMedian(array $arr): float {
+    if (empty($arr)) return 0.0;
+    sort($arr);
+    $count = count($arr);
+    $middle = (int)floor($count / 2);
+
+    if ($count % 2 === 0) {
+        return round(($arr[$middle - 1] + $arr[$middle]) / 2, 2);
+    }
+    return round($arr[$middle], 2);
+}
+
+// 3. Robust Analytics Engine (Per-Subject Metrics)
+$subjectAnalytics = [];
+foreach ($subjectScores as $subj => $scoresList) {
+    $count = count($scoresList);
+    $avg = $count > 0 ? round(array_sum($scoresList) / $count, 2) : 0;
+    $median = calculateMedian($scoresList);
+    $passedCount = count(array_filter($scoresList, fn($s) => $s >= $minSubjectScore));
+    $passRate = $count > 0 ? round(($passedCount / $count) * 100, 1) : 0;
+
+    $subjectAnalytics[$subj] = [
+        'average' => $avg,
+        'median' => $median,
+        'passRate' => $passRate
+    ];
+}
+
+$overallPassRate = $totalStudents > 0 ? round(($totalPassed / $totalStudents) * 100, 1) : 0;
+$overallAverage = $totalStudents > 0 ? round($sumOverallAvg / $totalStudents, 2) : 0;
+
+// 4. Insight Generator Otomatis
+$insight = "Belum ada data yang memadai untuk menghasilkan analisis.";
+if ($totalStudents > 0) {
+    uasort($subjectAnalytics, fn($a, $b) => $a['median'] <=> $b['median']);
+    $lowestSubj = array_key_first($subjectAnalytics);
+    $highestSubj = array_key_last($subjectAnalytics);
+
+    $insight = "Tingkat kelulusan siswa saat ini mencapai {$overallPassRate}%. ";
+    $insight .= "Mata pelajaran dengan performa tertinggi adalah {$highestSubj} (Median: {$subjectAnalytics[$highestSubj]['median']}), ";
+    $insight .= "sedangkan mata pelajaran {$lowestSubj} memerlukan perhatian ekstra (Median: {$subjectAnalytics[$lowestSubj]['median']}). ";
+
+    if ($overallPassRate < 50) {
+        $insight .= "Peringatan: Mayoritas siswa belum memenuhi ambang batas kualifikasi kelulusan.";
+    } else {
+        $insight .= "Secara keseluruhan, distribusi nilai menunjukkan performa akademik yang stabil.";
+    }
+}
+
+$analytics = [
+    'totalStudents' => $totalStudents,
+    'totalPassed' => $totalPassed,
+    'totalFailed' => $totalFailed,
+    'overallPassRate' => $overallPassRate,
+    'overallAverage' => $overallAverage,
+    'subjectAnalytics' => $subjectAnalytics,
+    'insight' => $insight
+];
+
+// 5. Output Response dalam JSON Format
+echo json_encode([
+    'status' => 'success',
+    'students' => $processedStudents,
+    'analytics' => $analytics
+], JSON_PRETTY_PRINT);
