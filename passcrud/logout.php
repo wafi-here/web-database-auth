@@ -1,8 +1,8 @@
 <?php
 header('Content-Type: application/json');
 
-// Menghapus cookie jwt_token dengan menset waktu mundur (time() - 3600)
-setcookie('jwt_token', '', [
+// Menghapus cookie auth_token (disamakan dengan verify.php) dengan menset waktu mundur
+setcookie('auth_token', '', [
     'expires'  => time() - 3600,
     'path'     => '/',
     'domain'   => '',
@@ -10,6 +10,9 @@ setcookie('jwt_token', '', [
     'httponly' => true,
     'samesite' => 'Lax'
 ]);
+
+// Cadangan untuk memastikan cookie benar-benar terhapus
+setcookie('auth_token', '', time() - 3600, '/');
 
 echo json_encode([
     'status'  => 'success',

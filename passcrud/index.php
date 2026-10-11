@@ -727,19 +727,20 @@
             try {
                 const response = await fetch('logout.php', {
                     method: 'POST',
-                    credentials: 'same-origin' // Mengirim cookie HttpOnly ke server
+                    credentials: 'same-origin'
                 });
 
                 const data = await response.json();
 
                 if (response.ok && data.status === 'success') {
-                    // Arahkan pengguna kembali ke halaman login
-                    window.location.href = 'login.php';
+                    // Gunakan replace agar tidak bisa di-back kembali ke index.php
+                    window.location.replace('login.php');
                 } else {
                     alert('Gagal melakukan logout.');
                 }
             } catch (error) {
                 console.error('Error saat logout:', error);
+                window.location.replace('login.php'); // Paksa redirect jika terjadi error jaringan
             }
         }
     </script>
